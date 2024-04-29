@@ -1,0 +1,92 @@
+﻿@page "/"
+
+<button class="btn btn-primary" @onclick="@ChangeId">Change Id</button>
+
+<MudDynamicTabs @ref="@DynamicTabs" @bind-ActivePanelIndex="@UserIndex"
+                AddTab="@AddTabCallback" CloseTab="@CloseTabCallback"
+                AddIconToolTip="Click to add a new tab" CloseIconToolTip="Close tab. All data will be lost"
+                PanelClass="" Elevation="4" Rounded ApplyEffectsToContainer>
+    @foreach (var tab in UserTabs)
+    {
+        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon"></MudTabPanel>
+    }
+</MudDynamicTabs>
+<StandaloneCodeEditor Id="@EditorId" ConstructionOptions="EditorConstructionOptions" />
+
+
+@code {
+
+    public class TabView
+    {
+        public string Label { get; set; }
+        public string Content { get; set; }
+        public Guid Id { get; set; }
+        public bool ShowCloseIcon { get; set; } = true;
+    }
+
+    public MudDynamicTabs DynamicTabs;
+    public List<TabView> UserTabs = new();
+    public int UserIndex;
+    bool _stateHasChanged;
+    bool _showCloseIcon = false;
+
+
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        if (_stateHasChanged)
+        {
+            _stateHasChanged = false;
+            StateHasChanged();
+        }
+    }
+
+    public void AddTab(Guid id)
+    {
+        UserTabs.Add(new TabView { Id = id, Label = "dynamic tab", Content = CurrentText });
+        UserIndex = UserTabs.Count - 1; // Automatically switch to the new tab.
+        _stateHasChanged = true;
+    }
+
+    public void RemoveTab(Guid id)
+    {
+        var tabView = UserTabs.SingleOrDefault((t) => Equals(t.Id, id));
+        if (tabView is not null)
+        {
+            UserTabs.Remove(tabView);
+            _stateHasChanged = true;
+        }
+    }
+
+    void AddTabCallback() => AddTab(Guid.NewGuid());
+    void CloseTabCallback(MudTabPanel panel) => RemoveTab((Guid)panel.ID);
+
+    private string? CurrentText = "function xyz() {\n" +
+                                "   console.log(\"Hello world!\");\n" +
+                                "}";
+
+    SwipeDirection _swipeDirection;
+
+    string EditorId = "editor-1";
+
+    private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor editor)
+    {
+        return new StandaloneEditorConstructionOptions
+            {
+                AutomaticLayout = true,
+                Language = "javascript",
+                Value = CurrentText
+            };
+    }
+
+    void ChangeId()
+    {
+        EditorId = "editor-2";
+    }
+}
