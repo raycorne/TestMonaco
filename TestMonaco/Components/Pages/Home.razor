@@ -1,7 +1,9 @@
 ﻿@page "/"
-
-<button class="btn btn-primary" @onclick="@ChangeId">Change Id</button>
-
+<MudPaper Elevation="25">
+    <MudToolBar>
+        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.Save" />
+    </MudToolBar>
+</MudPaper>
 <MudDynamicTabs @ref="@DynamicTabs" @bind-ActivePanelIndex="@UserIndex"
                 AddTab="@AddTabCallback" CloseTab="@CloseTabCallback"
                 AddIconToolTip="Click to add a new tab" CloseIconToolTip="Close tab. All data will be lost"
@@ -11,8 +13,7 @@
         <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon"></MudTabPanel>
     }
 </MudDynamicTabs>
-<StandaloneCodeEditor Id="@EditorId" ConstructionOptions="EditorConstructionOptions" />
-
+<StandaloneCodeEditor @ref="_editor" Id="sample-code-editor-123" ConstructionOptions="EditorConstructionOptions"/>
 
 @code {
 
@@ -24,17 +25,50 @@
         public bool ShowCloseIcon { get; set; } = true;
     }
 
+
+    private StandaloneCodeEditor _editor = null!;
+
     public MudDynamicTabs DynamicTabs;
     public List<TabView> UserTabs = new();
-    public int UserIndex;
+    private int userIndex;
+    public int UserIndex
+    {
+        get
+        {
+            return userIndex;
+        }
+        set
+        {
+            userIndex = value;
+            if(userIndex >= 0)
+            {
+                _editor.SetValue(UserTabs[userIndex].Content);
+            }
+        }
+    }
+
     bool _stateHasChanged;
     bool _showCloseIcon = false;
-
-
+    bool firstLaunch = true;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
+        UserTabs.Add(new TabView
+            {
+                Id = Guid.NewGuid(),
+                Label = "Tab A",
+                Content = "\"use strict\";\n" +
+                                "function Person(age) {\n" +
+                                "	if (age) {\n" +
+                                "		this.age = age;\n" +
+                                "	}\n" +
+                                "}\n" +
+                                "Person.prototype.getAge = function () {\n" +
+                                "	return this.age;\n" +
+                                "};\n"
+            });
+        userIndex = 0;
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -49,7 +83,7 @@
 
     public void AddTab(Guid id)
     {
-        UserTabs.Add(new TabView { Id = id, Label = "dynamic tab", Content = CurrentText });
+        UserTabs.Add(new TabView { Id = id, Label = "dynamic tab", Content = "" });
         UserIndex = UserTabs.Count - 1; // Automatically switch to the new tab.
         _stateHasChanged = true;
     }
@@ -67,26 +101,26 @@
     void AddTabCallback() => AddTab(Guid.NewGuid());
     void CloseTabCallback(MudTabPanel panel) => RemoveTab((Guid)panel.ID);
 
-    private string? CurrentText = "function xyz() {\n" +
-                                "   console.log(\"Hello world!\");\n" +
-                                "}";
 
-    SwipeDirection _swipeDirection;
-
-    string EditorId = "editor-1";
+    private string _valueToSet = "";
 
     private StandaloneEditorConstructionOptions EditorConstructionOptions(StandaloneCodeEditor editor)
     {
         return new StandaloneEditorConstructionOptions
             {
-                AutomaticLayout = true,
                 Language = "javascript",
-                Value = CurrentText
+                GlyphMargin = true,
+                Value = UserTabs[UserIndex].Content
             };
     }
 
-    void ChangeId()
+    private async Task SetValue(int index)
     {
-        EditorId = "editor-2";
+        await _editor.SetValue(UserTabs[index].Content);
+    }
+
+    private async Task UpdateContent()
+    {
+        UserTabs[UserIndex].Content = await _editor.GetValue();
     }
 }
