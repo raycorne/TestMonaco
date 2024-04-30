@@ -1,7 +1,21 @@
 ﻿@page "/"
+@using CodeEditor.Appl.Interfaces
+@using System.Text
+
+@inject IFolderPicker folderPicker;
+@inject IFileOperator fileOperator;
+
+
 <MudPaper Elevation="25">
     <MudToolBar>
-        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.Save" />
+        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.FileOpen" />
+        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.Save"/>
+        <MudIconButton OnClick="SaveFileAsync" Icon="@Icons.Material.Outlined.PlayCircleFilled" Color="Color.Success"/>
+        <MudSpacer />
+        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.Info"/>
+        <MudIconButton OnClick="EditLabel" Icon="@Icons.Material.Outlined.Edit" />
+
+
     </MudToolBar>
 </MudPaper>
 <MudDynamicTabs @ref="@DynamicTabs" @bind-ActivePanelIndex="@UserIndex"
@@ -10,7 +24,13 @@
                 PanelClass="" Elevation="4" Rounded ApplyEffectsToContainer>
     @foreach (var tab in UserTabs)
     {
-        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon"></MudTabPanel>
+        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon">
+            <div class="editLabelGroup">
+                <InputText @bind-Value="@TextValue" style="@editStyle" class="changeLabelInput"></InputText>
+                <MudIconButton Style="@editStyle" OnClick="ChangeLabel" Icon="@Icons.Material.Outlined.Done" />
+            </div>
+            
+        </MudTabPanel>
     }
 </MudDynamicTabs>
 <StandaloneCodeEditor @ref="_editor" Id="sample-code-editor-123" ConstructionOptions="EditorConstructionOptions"/>
@@ -122,5 +142,36 @@
     private async Task UpdateContent()
     {
         UserTabs[UserIndex].Content = await _editor.GetValue();
+    }
+
+    public async void SaveFileAsync()
+    {
+        var path = await folderPicker.PickFolder();
+        var fullPath = $"{path}\\{UserTabs[UserIndex].Label}.txt";
+        await UpdateContent();
+        fileOperator.SaveScriptFile(UserTabs[UserIndex].Content, fullPath);
+    }
+
+    private string editStyle = "display: none";
+    private bool showEditField = false;
+    private string TextValue = "";
+
+    private void EditLabel()
+    {
+        showEditField = !showEditField;
+        if(showEditField == true)
+        {
+            editStyle = "";
+        }
+        else
+        {
+            editStyle = "display: none;";
+        }
+    }
+
+    private void ChangeLabel()
+    {
+        UserTabs[UserIndex].Label = TextValue;
+        TextValue = "";
     }
 }
