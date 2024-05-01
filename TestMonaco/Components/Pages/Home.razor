@@ -8,11 +8,11 @@
 
 <MudPaper Elevation="25">
     <MudToolBar>
-        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.FileOpen" />
-        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.Save"/>
+        <MudIconButton OnClick="LoadFileAsync" Icon="@Icons.Material.Outlined.FileOpen" />
+        <MudIconButton OnClick="SaveFileAsync" Icon="@Icons.Material.Outlined.Save"/>
         <MudIconButton OnClick="SaveFileAsync" Icon="@Icons.Material.Outlined.PlayCircleFilled" Color="Color.Success"/>
         <MudSpacer />
-        <MudIconButton OnClick="UpdateContent" Icon="@Icons.Material.Outlined.Info"/>
+        <MudIconButton OnClick="ShowAboutInfo" Icon="@Icons.Material.Outlined.Info"/>
         <MudIconButton OnClick="EditLabel" Icon="@Icons.Material.Outlined.Edit" />
 
 
@@ -24,7 +24,12 @@
                 PanelClass="" Elevation="4" Rounded ApplyEffectsToContainer>
     @foreach (var tab in UserTabs)
     {
-        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon">
+        string tabLabel = tab.Label;
+        @if(tab.IsSaved == false)
+        {
+            tabLabel += "*";
+        }
+        <MudTabPanel ID="@tab.Id" Text="@tabLabel" ShowCloseIcon="@tab.ShowCloseIcon">
             <div class="editLabelGroup">
                 <InputText @bind-Value="@TextValue" style="@editStyle" class="changeLabelInput"></InputText>
                 <MudIconButton Style="@editStyle" OnClick="ChangeLabel" Icon="@Icons.Material.Outlined.Done" />
@@ -33,7 +38,11 @@
         </MudTabPanel>
     }
 </MudDynamicTabs>
-<StandaloneCodeEditor @ref="_editor" Id="sample-code-editor-123" ConstructionOptions="EditorConstructionOptions"/>
+@if(UserTabs.Count > 0)
+{
+    <StandaloneCodeEditor OnKeyUp="EditorOnKeyUp" @ref="_editor" Id="sample-code-editor-123" ConstructionOptions="EditorConstructionOptions" />
+}
+
 
 @code {
 
@@ -43,6 +52,7 @@
         public string Content { get; set; }
         public Guid Id { get; set; }
         public bool ShowCloseIcon { get; set; } = true;
+        public bool IsSaved { get; set; } = false;
     }
 
 
@@ -103,7 +113,14 @@
 
     public void AddTab(Guid id)
     {
-        UserTabs.Add(new TabView { Id = id, Label = "dynamic tab", Content = "" });
+        UserTabs.Add(new TabView { Id = id, Label = "New document", Content = "", IsSaved = false});
+        UserIndex = UserTabs.Count - 1; // Automatically switch to the new tab.
+        _stateHasChanged = true;
+    }
+
+    public void AddTab(Guid id, string label, string content, bool isSaved)
+    {
+        UserTabs.Add(new TabView { Id = id, Label = label, Content = content, IsSaved = isSaved });
         UserIndex = UserTabs.Count - 1; // Automatically switch to the new tab.
         _stateHasChanged = true;
     }
@@ -139,17 +156,46 @@
         await _editor.SetValue(UserTabs[index].Content);
     }
 
-    private async Task UpdateContent()
+    private async void EditorOnKeyUp(KeyboardEvent keyboardEvent)
     {
+        Console.WriteLine("OnKeyUpOriginal : " + keyboardEvent.Code);
         UserTabs[UserIndex].Content = await _editor.GetValue();
+        UserTabs[UserIndex].IsSaved = false;
     }
 
     public async void SaveFileAsync()
     {
         var path = await folderPicker.PickFolder();
         var fullPath = $"{path}\\{UserTabs[UserIndex].Label}.txt";
-        await UpdateContent();
         fileOperator.SaveScriptFile(UserTabs[UserIndex].Content, fullPath);
+        UserTabs[UserIndex].IsSaved = true;
+        StateHasChanged();
+    }
+
+    public async void LoadFileAsync()
+    {
+        var customFileType = new FilePickerFileType(
+                   new Dictionary<DevicePlatform, IEnumerable<string>>
+                                       {
+                       { DevicePlatform.iOS, new[] { "public.text" } }, // UTType values
+                       { DevicePlatform.Android, new[] { "text/plain" } }, // MIME type
+                       { DevicePlatform.WinUI, new[] { ".txt" } }, // file extension
+                       { DevicePlatform.macOS, new[] { "txt" } },
+                                       });
+        PickOptions options = new()
+            {
+                PickerTitle = "Выберите файл скрипта",
+                FileTypes = customFileType,
+            };
+
+        var result = await FilePicker.PickAsync(options);
+        if (result != null)
+        {
+            var content = fileOperator.LoadScriptFile(result.FullPath);
+            AddTab(Guid.NewGuid(), result.FileName, content, true);
+            StateHasChanged();
+        }
+
     }
 
     private string editStyle = "display: none";
@@ -173,5 +219,11 @@
     {
         UserTabs[UserIndex].Label = TextValue;
         TextValue = "";
+        EditLabel();
+    }
+
+    private async void ShowAboutInfo()
+    {
+        await App.Current.MainPage.DisplayAlert("Информация", "Программа разработана при поддержке Виктора Русенко", "Понял принял");
     }
 }

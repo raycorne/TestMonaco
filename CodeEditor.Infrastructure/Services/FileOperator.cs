@@ -5,9 +5,9 @@ namespace CodeEditor.Infrastructure.Services
 {
     public class FileOperator : IFileOperator
     {
-        public string OpenScriptFile()
+        public string LoadScriptFile(string filePath)
         {
-            throw new NotImplementedException();
+            return File.ReadAllText(filePath);
         }
 
         public void SaveScriptFile(string data, string filePath)
