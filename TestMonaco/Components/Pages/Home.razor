@@ -1,9 +1,11 @@
 ﻿@page "/"
 @using CodeEditor.Appl.Interfaces
 @using System.Text
+@using CommunityToolkit.Maui.Storage
 
-@inject IFolderPicker folderPicker;
 @inject IFileOperator fileOperator;
+
+@inject IFileSaver fileSaver;
 
 
 <MudPaper Elevation="25">
@@ -163,14 +165,28 @@
         UserTabs[UserIndex].IsSaved = false;
     }
 
+    CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+
     public async void SaveFileAsync()
     {
-        var path = await folderPicker.PickFolder();
-        var fullPath = $"{path}\\{UserTabs[UserIndex].Label}.txt";
-        fileOperator.SaveScriptFile(UserTabs[UserIndex].Content, fullPath);
-        UserTabs[UserIndex].IsSaved = true;
-        StateHasChanged();
+        //var path = await folderPicker.PickFolder();
+
+
+        using var stream = new MemoryStream(Encoding.Default.GetBytes(UserTabs[UserIndex].Content));
+
+        var path = await fileSaver.SaveAsync(UserTabs[UserIndex].Label+".txt", stream, cancellationTokenSource.Token);
+
+        if(path != null && !string.IsNullOrEmpty(path.FilePath))
+        {
+            string fileName = Path.GetFileName(path.FilePath);
+            UserTabs[UserIndex].Label = fileName;
+            UserTabs[UserIndex].IsSaved = true;
+            StateHasChanged();
+        }
     }
+
+
+
 
     public async void LoadFileAsync()
     {
