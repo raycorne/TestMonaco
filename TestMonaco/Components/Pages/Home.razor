@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using CodeEditor.Appl.Interfaces
 @using System.Text
+@using CodeEditor.Infrastructure.Services
 @using CommunityToolkit.Maui.Storage
 
 @inject IFileOperator fileOperator;
@@ -12,7 +13,7 @@
     <MudToolBar>
         <MudIconButton OnClick="LoadFileAsync" Icon="@Icons.Material.Outlined.FileOpen" />
         <MudIconButton OnClick="SaveFileAsync" Icon="@Icons.Material.Outlined.Save"/>
-        <MudIconButton OnClick="SaveFileAsync" Icon="@Icons.Material.Outlined.PlayCircleFilled" Color="Color.Success"/>
+        <MudIconButton OnClick="TranslateCode" Icon="@Icons.Material.Outlined.PlayCircleFilled" Color="Color.Success"/>
         <MudSpacer />
         <MudIconButton OnClick="ShowAboutInfo" Icon="@Icons.Material.Outlined.Info"/>
         <MudIconButton OnClick="EditLabel" Icon="@Icons.Material.Outlined.Edit" />
@@ -241,5 +242,15 @@
     private async void ShowAboutInfo()
     {
         await App.Current.MainPage.DisplayAlert("Информация", "Программа разработана при поддержке Виктора Русенко", "Понял принял");
+    }
+
+    private void TranslateCode()
+    {
+
+        var translator = new TranslatorService();
+        string cCode = UserTabs[UserIndex].Content;
+
+        string assemblyCode = translator.TranslateCToAssembly(cCode);
+        Console.WriteLine(assemblyCode);
     }
 }
