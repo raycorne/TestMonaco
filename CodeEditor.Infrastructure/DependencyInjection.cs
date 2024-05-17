@@ -10,6 +10,11 @@ namespace CodeEditor.Infrastructure
         {
 
             services.AddScoped<IFileOperator, FileOperator>();
+
+            services.AddScoped<Convertor>();
+
+            /*services.AddScoped<Lexer>();
+            services.AddScoped<Parser>();*/
             return services;
         }
     }
