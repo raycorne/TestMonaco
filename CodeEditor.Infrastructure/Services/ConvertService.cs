@@ -1,17 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using CodeEditor.Appl.Interfaces;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace CodeEditor.Infrastructure.Services
 {
-    public class Convertor
+    public class ConvertService : IConvertService
     {
         public string ConvertToIR(string cCode)
         {
-            Dictionary<string, string> variables = new Dictionary<string, string>();
             List<string> irLines = new List<string>();
 
             Regex varRegex = new Regex(@"int\s+(\w+)\s*=\s*(\d+)\s*;");
@@ -29,7 +24,6 @@ namespace CodeEditor.Infrastructure.Services
                 {
                     string varName = varMatch.Groups[1].Value;
                     string varValue = varMatch.Groups[2].Value;
-                    variables[varName] = varValue;
                     irLines.Add($"int {varName} = {varValue}");
                     continue;
                 }
@@ -82,7 +76,7 @@ namespace CodeEditor.Infrastructure.Services
                 if (trimmedLine.StartsWith("int"))
                 {
                     string[] parts = trimmedLine.Split(new[] { ' ', '=', ';' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length == 4 && int.TryParse(parts[3], out int value))
+                    if (parts.Length == 3 && int.TryParse(parts[2], out int value))
                     {
                         string varName = parts[1];
                         variables[varName] = value;
@@ -94,12 +88,12 @@ namespace CodeEditor.Infrastructure.Services
                     string condition = trimmedLine.Substring(6, trimmedLine.Length - 8);
                     string startLabel = $"L{tempVarCount++}";
                     string endLabel = $"{startLabel}_end";
+                    labelStack.Push(startLabel);
                     labelStack.Push(endLabel);
                     asmLines.Add($"{startLabel}:");
                     string[] condParts = ParseCondition(condition);
                     asmLines.Add($"cmp {condParts[0]}, {condParts[2]}");
                     asmLines.Add($"{condParts[1]} {endLabel}");
-                    asmLines.Add($"{startLabel}_body:");
                 }
                 else if (trimmedLine.StartsWith("if"))
                 {
@@ -109,14 +103,17 @@ namespace CodeEditor.Infrastructure.Services
                     string[] condParts = ParseCondition(condition);
                     asmLines.Add($"cmp {condParts[0]}, {condParts[2]}");
                     asmLines.Add($"{condParts[1]} {elseLabel}");
-                    asmLines.Add($"{elseLabel}_body:");
                 }
                 else if (trimmedLine == "}")
                 {
                     if (labelStack.Count > 0)
                     {
                         string endLabel = labelStack.Pop();
-                        asmLines.Add($"jmp {endLabel}");
+                        if (endLabel.Contains("_end"))
+                        {
+                            string startLabel = labelStack.Pop();
+                            asmLines.Add($"jmp {startLabel}");
+                        }
                         asmLines.Add($"{endLabel}:");
                     }
                 }
@@ -144,6 +141,9 @@ namespace CodeEditor.Infrastructure.Services
         private string[] ParseCondition(string condition)
         {
             condition = condition.Replace(" ", "");
+            condition = condition.Replace("(", "");
+            condition = condition.Replace(")", "");
+
             if (condition.Contains("<"))
             {
                 return new string[] { condition.Split('<')[0], "jge", condition.Split('<')[1] };

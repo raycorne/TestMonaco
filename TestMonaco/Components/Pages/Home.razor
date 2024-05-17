@@ -8,7 +8,7 @@
 
 @inject IFileSaver fileSaver;
 
-@inject Convertor convertor;
+@inject IConvertService converter;
 
 
 <MudPaper Elevation="25">
@@ -86,6 +86,8 @@
     bool _showCloseIcon = false;
     bool firstLaunch = true;
 
+    string assemblyCode = "";
+
     protected override void OnInitialized()
     {
         base.OnInitialized();
@@ -93,15 +95,14 @@
             {
                 Id = Guid.NewGuid(),
                 Label = "Tab A",
-                Content = "\"use strict\";\n" +
-                                "function Person(age) {\n" +
-                                "	if (age) {\n" +
-                                "		this.age = age;\n" +
-                                "	}\n" +
-                                "}\n" +
-                                "Person.prototype.getAge = function () {\n" +
-                                "	return this.age;\n" +
-                                "};\n"
+                Content = "int a = 5;\n" +
+                            "int b = 10;\n"+
+                            "while (a < b) {\n" +
+                                "   a = a + 1;\n" +
+                                "   if (a == 7) {\n" +
+                                "       b = b - 2;\n" +
+                                "   }\n" +
+                            "}\n"
             });
         userIndex = 0;
     }
@@ -246,24 +247,36 @@
         await App.Current.MainPage.DisplayAlert("Информация", "Программа разработана при поддержке Виктора Русенко", "Понял принял");
     }
 
-    private void TranslateCode()
+    private async Task TranslateCode()
     {
 
         string code = UserTabs[UserIndex].Content;
 
-        // string code = @"
-        //     int a = 5;
-        //     int b = 10;
-        //     while (a < b) {
-        //         a = a + 1;
-        //         if (a == 7) {
-        //             b = b - 2;
-        //         }
-        //     }
-        // ";
+        string irCode = converter.ConvertToIR(code);
+        string asmCode = converter.ConvertIRToAsm(irCode);
+        var result = await SaveCompiledCode(asmCode);
+        if(result)
+            AddTab(Guid.NewGuid(), UserTabs[UserIndex].Label + ".asm", asmCode, true);
+    }
 
-        string irCode = convertor.ConvertToIR(code);
-        string asmCode = convertor.ConvertIRToAsm(irCode);
-        Console.WriteLine(asmCode);
+    public async Task<bool> SaveCompiledCode(string asmCode)
+    {
+        bool isSuccess = false;
+        using var stream = new MemoryStream(Encoding.Default.GetBytes(asmCode));
+
+        var path = await fileSaver.SaveAsync(UserTabs[UserIndex].Label + ".asm", stream, cancellationTokenSource.Token);
+
+        if (path != null && !string.IsNullOrEmpty(path.FilePath))
+        {
+            await App.Current.MainPage.DisplayAlert("Информация", "Ассемблерный код сохранен", "Ок");
+            isSuccess = true;
+            StateHasChanged();
+        }
+        else
+        {
+            await App.Current.MainPage.DisplayAlert("Ошибка", "Ошибка сохранения", "Ок");
+            isSuccess = false;
+        }
+        return isSuccess;
     }
 }
